@@ -25,7 +25,7 @@ for pdf_file in pdf_files:
     with open(text_file_path, 'w', encoding='utf-8') as text_file:
         text_file.write(text)
 
- # Create a corresponding folder structure in Data/raw_text and save the extracted text.
+# Create a corresponding folder structure in Data/raw_text and save the extracted text.
     raw_text_folder = Path("Data/raw_text")
     raw_text_folder.mkdir(parents=True, exist_ok=True)
 
