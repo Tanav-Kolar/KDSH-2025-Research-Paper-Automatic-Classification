@@ -1,3 +1,5 @@
+# This script extracts text from PDF files in the Data folder and saves the text to a new folder.
+
 import os
 from pathlib import Path
 from pdfminer.high_level import extract_text
