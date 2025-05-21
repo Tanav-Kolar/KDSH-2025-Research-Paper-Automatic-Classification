@@ -1,35 +1,49 @@
-import os, json
+import os
+import json
 import pandas as pd
 
 #Paths
-SECTIONS_DIR    = 'data/sections'         
-META_CSV        = 'data/metadata.csv'     
-LABELED_DIR     = 'data/labeled_sections' 
+META_CSV      = 'data/metadata.csv'
+SEGMENTS_DIR  = 'data/sections/reference'
+OUTPUT_DIR    = 'data/labeled_sections/reference'
 
-meta = pd.read_csv(META_CSV, dtype={'paper_id': str})
+#load metadata into a pandas dataframe
+meta = pd.read_csv(META_CSV, dtype=str).fillna('')
 meta.set_index('paper_id', inplace=True)
 
-os.makedirs(LABELED_DIR, exist_ok=True)
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-#Iterate over all JSON files in the sections directory and assign labels based on metadata.
-for fname in os.listdir(SECTIONS_DIR):
-    if not fname.endswith('.json'):
+for fname in os.listdir(SEGMENTS_DIR):
+    if not fname.lower().endswith('.json'):
         continue
-    pid = os.path.splitext(fname)[0]
-    seg = json.load(open(os.path.join(SECTIONS_DIR, fname), encoding='utf-8'))
 
+    pid = os.path.splitext(fname)[0]
+    seg_path = os.path.join(SEGMENTS_DIR, fname)
+    data = json.load(open(seg_path, encoding='utf-8'))
+
+    if pid not in meta.index:
+        raise KeyError(f"No metadata row for paper_id={pid}")
 
     row = meta.loc[pid]
+    # parse CSV fields
+    is_ref     = row['is_reference'].lower() in ('1','true','yes')
+    ref_cat    = row['ref_category'].strip().lower()    
+    venue      = row['venue_label'].strip()            
 
-    # Assign Stage-1 label
-    is_pub = 1 if (not row['is_reference']) or (row['ref_category']=='publishable') else 0
-    seg['is_publishable'] = int(is_pub)
+    # attach
+    data['is_reference'] = is_ref
+    data['ref_category'] = ref_cat if ref_cat else None
+    # Stage-1 label: is_publishable
+    data['is_publishable'] = int((not is_ref) or (ref_cat=='publishable'))
+    # Stage-2 label: only for publishable cases
+    data['venue']         = venue if data['is_publishable']==1 and venue else None
 
-    #Assign Stage-2 labels
-    seg['venue'] = row['venue_label'] if row.get('venue_label') and is_pub else None
-
-    out_path = os.path.join(LABELED_DIR, f"{pid}.json")
+    # write out
+    out_path = os.path.join(OUTPUT_DIR, fname)
     with open(out_path, 'w', encoding='utf-8') as fo:
-        json.dump(seg, fo, indent=2)
+        json.dump(data, fo, indent=2)
 
-    print(f"Labeled {pid}: publishable={seg['is_publishable']}, venue={seg['venue']}")
+    print(f"[OK] {pid} → publishable={data['is_publishable']} , venue={data['venue']}")
+
+print("All papers labeled and saved to", OUTPUT_DIR)
+
